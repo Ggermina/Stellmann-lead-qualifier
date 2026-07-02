@@ -40,6 +40,46 @@ structured verdict ► one JSON object: fit, deal potential, next action,
    zero sources is force-downgraded to LOW, regardless of what the model
    claims. Honesty as a structural constraint, not a suggestion.
 
+## How it qualifies (the reasoning)
+
+The tool isn't a keyword matcher — it applies a decision sequence, and every
+verdict is tied to evidence it actually found. The logic, in order:
+
+**1. Resolve the entity first.** Before judging fit, it confirms *who the
+company actually is* — resolving a name to a real website, or verifying who
+operates a given domain. This is deliberate: `commercialcleaning.au` is run by
+Clean Group, not a business called "Commercial Cleaning," and qualifying the
+wrong entity poisons everything downstream.
+
+**2. Classify the business against three roles.** Fit hinges on one
+distinction that a naive tool gets wrong:
+
+| Role | Signal | Verdict |
+|---|---|---|
+| **Installer / applicator** | Applies coatings — including *other brands'* products | **Customer** — buys product repeatedly |
+| **Commercial buyer** | Owns or manages premises needing non-slip solutions | **Customer** — purchases for own sites |
+| **Manufacturer** | Makes or owns a competing coating brand | **Competitor — not a fit** |
+
+The trap the ICP is built to avoid: an applicator who installs rival brands
+*looks* like a competitor but is an ideal customer. Ascoat is exactly this —
+it applies Sika, Flowcrete, Fosroc; the play is adding Stellmann to that
+roster, not writing it off.
+
+**3. Reason each output from evidence, not assumption.**
+- *Deal potential* is inferred from size and purchase pattern — staff count,
+  number of locations, one-off vs. repeat buying — never a fabricated number.
+- *Next action* is matched to fit: a strong installer gets a direct sales
+  approach; an uncertain lead gets a discovery/verification step, not a pitch.
+- *Confidence* is scored on evidence quality, and this is where the tool is
+  opinionated: thin results, an ambiguous entity, or an unreachable site force
+  it to **say so** rather than guess.
+
+**4. Fail honest, not confident.** When the evidence isn't there, the correct
+output is LOW confidence with a plain statement of what couldn't be verified —
+enforced twice (see below). A confident guess is treated as a failure, because
+in a real sales pipeline a false "strong fit" wastes a rep's time and a false
+"no fit" discards revenue.
+
 ## Run it
 
 ```bash
