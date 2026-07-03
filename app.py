@@ -13,11 +13,14 @@ in the CLI. Run with:
 Your browser opens automatically at http://localhost:8501
 """
 
+import json
 import os
+import re
+from pathlib import Path
 
 import streamlit as st
 
-from qualify import qualify  # reuses the exact logic the CLI already tested
+from qualify import qualify, to_markdown  # reuses the exact CLI logic
 
 # ---------------------------------------------------------------------------
 # Page setup
@@ -28,7 +31,9 @@ st.set_page_config(page_title="Lead Qualifier — Stellmann", page_icon="◆", l
 # Semantic colors: meaning, not decoration. Fit/confidence map to intent.
 GREEN, AMBER, RED, GRAY, INK = "#1f7a4d", "#b76e00", "#a3341f", "#5b6470", "#1a1d21"
 
+BLUE = "#2456a6"
 FIT_STYLE = {
+    "EXISTING_CLIENT": (BLUE, "Existing client — do not contact"),
     "STRONG_FIT_INSTALLER": (GREEN, "Strong fit — installer"),
     "STRONG_FIT_COMMERCIAL_BUYER": (GREEN, "Strong fit — commercial buyer"),
     "PARTIAL_FIT": (AMBER, "Partial fit"),
@@ -96,7 +101,6 @@ target = st.text_input(
     placeholder="e.g. ascoat.com.au  or  Slip Solutions Sydney",
 )
 
-
 run = st.button("Qualify lead", type="primary", use_container_width=True)
 
 # ---------------------------------------------------------------------------
@@ -154,6 +158,32 @@ def render(r: dict) -> None:
         )
 
 
+def save_and_offer_downloads(r: dict) -> None:
+    """Write .md + .json to outputs/ (mirrors the CLI) and offer downloads.
+
+    Uses the same to_markdown() the CLI uses, so the UI and command line
+    produce byte-identical report files.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", str(r.get("_meta", {}).get("input", "result")).lower()).strip("-")[:60] or "result"
+    md = to_markdown(r)
+    js = json.dumps(r, indent=2)
+
+    saved_note = ""
+    try:
+        outdir = Path("outputs")
+        outdir.mkdir(exist_ok=True)
+        (outdir / f"{slug}.md").write_text(md, encoding="utf-8")
+        (outdir / f"{slug}.json").write_text(js, encoding="utf-8")
+        saved_note = f"Saved to `outputs/{slug}.md` and `outputs/{slug}.json`."
+    except Exception as exc:  # e.g. read-only dir — downloads still work
+        saved_note = f"Couldn't write to outputs/ ({exc}). Use the download buttons below."
+
+    st.caption(saved_note)
+    d1, d2 = st.columns(2)
+    d1.download_button("Download .md report", md, file_name=f"{slug}.md", mime="text/markdown", use_container_width=True)
+    d2.download_button("Download .json", js, file_name=f"{slug}.json", mime="application/json", use_container_width=True)
+
+
 if run:
     if not target.strip():
         st.warning("Enter a company name or URL first.")
@@ -164,5 +194,7 @@ if run:
             try:
                 result = qualify(target.strip())
                 render(result)
+                st.divider()
+                save_and_offer_downloads(result)
             except Exception as exc:
                 st.error(f"Qualification failed: {exc}")
